@@ -234,11 +234,11 @@ class LatentGateVAE:
     # =========== KL Part ==============
     KL = ((alpha - a) / (self.eps + alpha)) * (-np.euler_gamma - tf.digamma(beta + self.eps) - tf.pow(beta + self.eps, -1))
     KL += tf.log(alpha * beta + self.eps)
-    # KL += tf.lgamma(a) + tf.lgamma(b) - tf.lgamma(a + b)
+    # KL += tf.lgamma(a) + tf.lgamma(b) - tf.lgamma(a + b) TODO this term causes nan
     KL -= ((beta - 1.) / (beta + self.eps))
 
     # Taylor approximation
-    for i in range(0):
+    for i in range(0): # TODO should be 3-10, causes nans
         KL += (b - 1.0) * beta * (tf.pow((float(i) + alpha * beta), -1)) * tf.exp(\
             tf.lgamma(i / (alpha + self.eps)) + tf.lgamma(b) - tf.lgamma((i / (alpha + self.eps)) + b))
 
