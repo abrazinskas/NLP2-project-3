@@ -120,7 +120,7 @@ class VAETrainer:
         epoch_steps += 1
         
         if batch_id % 100 == 0:
-          print(res["KL"])
+          # print(res["KL"])
           print("Iter {:5d} loss {:6f} accuracy {:1.2f} lr {:1.6f}".format(
             batch_id, res["loss"], batch_accuracy, lr_t))
 

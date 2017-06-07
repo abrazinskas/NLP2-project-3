@@ -57,7 +57,7 @@ with tf.Session() as sess:
     batch_size=batch_size, emb_dim=emb_dim, mlp_dim=mlp_dim, session=sess)
 
   # our trainer
-  trainer = NeuralIBM1Trainer(
+  trainer = VAETrainer(
     model, train_e_path, train_f_path, 
     dev_e_path, dev_f_path, dev_wa,
     num_epochs=num_epochs, batch_size=batch_size, 
