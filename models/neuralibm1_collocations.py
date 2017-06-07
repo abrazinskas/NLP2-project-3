@@ -17,8 +17,7 @@ class NeuralIBM1CollocationsModel:
     """Our Neural IBM1 model with collocations"""
 
 
-    def __init__(self, batch_size=8, x_vocabulary=None, y_vocabulary=None, emb_dim=32, mlp_dim=64, session=None,
-                 gated=False):
+    def __init__(self, batch_size=8, x_vocabulary=None, y_vocabulary=None, emb_dim=32, mlp_dim=64, session=None):
         self.batch_size = batch_size
         self.emb_dim = emb_dim
         self.mlp_dim = mlp_dim
@@ -27,8 +26,6 @@ class NeuralIBM1CollocationsModel:
         self.y_vocabulary = y_vocabulary
         self.x_vocabulary_size = len(x_vocabulary)
         self.y_vocabulary_size = len(y_vocabulary)
-
-        self.gated = gated
 
         self._create_placeholders()
         self._create_weights()
@@ -171,39 +168,36 @@ class NeuralIBM1CollocationsModel:
         Performs a feed-forward pass. Depending on the self.gate attribute will run different versions of the pass.
         p(f|e,f_prev) where sum over c is already performed.
         """
-        if self.gated:
-            raise NotImplementedError
-        else:
-            history_embedded = tf.reshape(history_embedded, [batch_size*longest_y, self.emb_dim])
-            x_embedded = tf.reshape(x_embedded, [batch_size * longest_x, self.emb_dim])
+        history_embedded = tf.reshape(history_embedded, [batch_size*longest_y, self.emb_dim])
+        x_embedded = tf.reshape(x_embedded, [batch_size * longest_x, self.emb_dim])
 
-            # 1. compute P(C|F_prev) param
-            s_f = tf.sigmoid(tf.matmul(history_embedded, self.a_))  # [B*N, 1]
+        # 1. compute P(C|F_prev) param
+        s_f = tf.sigmoid(tf.matmul(history_embedded, self.a_))  # [B*N, 1]
 
-            # 2. compute P(F|F_prev) param
-            i_f = tf.nn.softmax(tf.matmul(history_embedded, self.W_tF) + self.b_tF)  # [B*N, vocab_size]
+        # 2. compute P(F|F_prev) param
+        i_f = tf.nn.softmax(tf.matmul(history_embedded, self.W_tF) + self.b_tF)  # [B*N, vocab_size]
 
-            # 3. compute P(F|E) param
-            t_e = tf.nn.softmax(tf.matmul(x_embedded, self.W_tE) + self.b_tE)  # [B*M, vocab_size]
+        # 3. compute P(F|E) param
+        t_e = tf.nn.softmax(tf.matmul(x_embedded, self.W_tE) + self.b_tE)  # [B*M, vocab_size]
 
-            # expand and reshape
+        # expand and reshape
 
-            s_f = tf.reshape(s_f, [batch_size, longest_y])
-            s_f = tf.expand_dims(s_f, axis=1)
-            s_f = tf.expand_dims(s_f, axis=3)
-            # s_f = tf.tile(s_f, [1, longest_x, 1, self.y_vocabulary_size])  # [B, M, N, vocab_size]
+        s_f = tf.reshape(s_f, [batch_size, longest_y])
+        s_f = tf.expand_dims(s_f, axis=1)
+        s_f = tf.expand_dims(s_f, axis=3)
+        # s_f = tf.tile(s_f, [1, longest_x, 1, self.y_vocabulary_size])  # [B, M, N, vocab_size]
 
-            i_f = tf.reshape(i_f, [batch_size, longest_y, self.y_vocabulary_size])  # [B, N, vocab_size]
-            i_f = tf.expand_dims(i_f, axis=1)
-            # i_f = tf.tile(i_f, [1, longest_x, 1, 1])  # [B, M, N, vocab_size]
+        i_f = tf.reshape(i_f, [batch_size, longest_y, self.y_vocabulary_size])  # [B, N, vocab_size]
+        i_f = tf.expand_dims(i_f, axis=1)
+        # i_f = tf.tile(i_f, [1, longest_x, 1, 1])  # [B, M, N, vocab_size]
 
-            t_e = tf.reshape(t_e, [batch_size, longest_x, self.y_vocabulary_size])
-            t_e = tf.expand_dims(t_e, axis=2)
-            # t_e = tf.tile(t_e, [1, 1, longest_y, 1]) # [B, M, N, vocab_size]
+        t_e = tf.reshape(t_e, [batch_size, longest_x, self.y_vocabulary_size])
+        t_e = tf.expand_dims(t_e, axis=2)
+        # t_e = tf.tile(t_e, [1, 1, longest_y, 1]) # [B, M, N, vocab_size]
 
-            # produce distribution
-            res = (1. - s_f) * t_e + s_f* i_f
-            return res
+        # produce distribution
+        res = (1. - s_f) * t_e + s_f * i_f
+        return res
 
 
     def evaluate(self, data, ref_alignments, batch_size=4):
@@ -215,6 +209,8 @@ class NeuralIBM1CollocationsModel:
         metric = AERSufficientStatistics()
         accuracy_correct = 0
         accuracy_total = 0
+        loss_total = 0
+        steps = 0.
 
         for batch_id, batch in enumerate(iterate_minibatches(data, batch_size=batch_size)):
             x, y = prepare_data(batch, self.x_vocabulary, self.y_vocabulary)
@@ -222,9 +218,11 @@ class NeuralIBM1CollocationsModel:
 
             y_len = np.sum(np.sign(y), axis=1, dtype="int64")
 
-            align, prob, acc_correct, acc_total = self.get_viterbi(x, y, history)
+            align, prob, acc_correct, acc_total, loss = self.get_viterbi(x, y, history)
             accuracy_correct += acc_correct
             accuracy_total += acc_total
+            loss_total += loss
+            steps += 1
 
             for alignment, N, (sure, probable) in zip(align, y_len, ref_iterator):
                 # the evaluation ignores NULL links, so we discard them
@@ -237,7 +235,7 @@ class NeuralIBM1CollocationsModel:
                 #       s +=1
 
         accuracy = accuracy_correct / float(accuracy_total)
-        return metric.aer(), accuracy
+        return metric.aer(), accuracy, loss_total/float(steps)
 
     def get_viterbi(self, x, y, history):
         """Returns the Viterbi alignment for (x, y)"""

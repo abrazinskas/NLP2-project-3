@@ -134,6 +134,7 @@ class NeuralIBM1ContextModel:
         py_xa = self.ffnn(x_embedded, history_embedded, batch_size, longest_x, longest_y)
         py_xa = tf.reshape(py_xa, [batch_size, longest_x, longest_y, self.y_vocabulary_size])
 
+
         # 2.c Marginalise alignments: \sum_a P(a|x) P(Y|x,a)
 
         py_x = tf.reduce_sum(tf.multiply(pa_x, py_xa), axis=1)  # Shape: [B, N, Vy]
@@ -200,7 +201,7 @@ class NeuralIBM1ContextModel:
                 #s +=1
 
         accuracy = accuracy_correct / float(accuracy_total)
-        return metric.aer(), accuracy, loss/float(steps)
+        return metric.aer(), accuracy, loss_total/float(steps)
 
     def get_viterbi(self, x, y, history):
         """Returns the Viterbi alignment for (x, y)"""

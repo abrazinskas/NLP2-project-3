@@ -235,7 +235,7 @@ class NeuralIBM1Model:
  #       s +=1
 
     accuracy = accuracy_correct / float(accuracy_total)
-    return metric.aer(), accuracy, loss/float(steps)
+    return metric.aer(), accuracy, loss_total/float(steps)
 
   def get_viterbi(self, x, y):
     """Returns the Viterbi alignment for (x, y)"""
