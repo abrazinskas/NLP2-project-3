@@ -190,6 +190,10 @@ class LatentGateVAE:
     hb = tf.tanh(hb)                                                # non-linearity
     b = tf.exp(tf.matmul(hb, self.th_W_b) + self.th_b_b)            # affine transformation [B * N, 1]
 
+    # TODO This doesn't seem to work for numerical issues.
+    # a = tf.maximum(a, 10)
+    # b = tf.maximum(b, 10)
+
     # Change s to the Beta mean if we're not training
     s = tf.cond(self.is_training, lambda: s, lambda: a / (a + b))
 
