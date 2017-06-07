@@ -170,6 +170,10 @@ class LatentGateVAE:
     hb = tf.tanh(hb)                                       # non-linearity
     beta = tf.exp(tf.matmul(hb, self.phi_W_b) + self.phi_b_b)      # affine transformation [B * N, 1]
 
+    # TODO This doesn't seem to work for numerical issues.
+    # alpha = tf.maximum(alpha, 10)
+    # beta = tf.maximum(beta, 10)
+
     # Sample some random uniform numbers. Then calculate s using a and b
     # which is then Kumaraswamy distributed.
     u = tf.random_uniform(tf.shape(alpha), minval=0., maxval=1.)
@@ -234,7 +238,7 @@ class LatentGateVAE:
     # =========== KL Part ==============
     KL = ((alpha - a) / (self.eps + alpha)) * (-np.euler_gamma - tf.digamma(beta + self.eps) - tf.pow(beta + self.eps, -1))
     KL += tf.log(alpha * beta + self.eps)
-    # KL += tf.lgamma(a) + tf.lgamma(b) - tf.lgamma(a + b) TODO this term causes nan
+    # KL += tf.lgamma(a) + tf.lgamma(b) - tf.lgamma(a + b) # TODO this term causes nan
     KL -= ((beta - 1.) / (beta + self.eps))
 
     # Taylor approximation
