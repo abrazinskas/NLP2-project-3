@@ -241,10 +241,10 @@ class LatentGateVAE:
 
     # =========== KL Part ==============
     # Numerical stability
-    # alpha = tf.clip_by_value(alpha, 0.001, 10)
-    # beta = tf.clip_by_value(beta, 0.001, 10)
-    # a = tf.clip_by_value(a, 0.001, 10)
-    # b = tf.clip_by_value(b, 0.001, 10)
+    alpha = tf.clip_by_value(alpha, 0.001, 10)
+    beta = tf.clip_by_value(beta, 0.001, 10)
+    a = tf.clip_by_value(a, 0.001, 10)
+    b = tf.clip_by_value(b, 0.001, 10)
 
     KL = ((alpha - a) / (alpha)) * (-np.euler_gamma - tf.digamma(beta) - (1.0 / beta))
     KL += tf.log(alpha * beta)
