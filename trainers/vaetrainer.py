@@ -108,6 +108,10 @@ class VAETrainer:
           "py_xa"       : self.model.py_xa,
           "py_x"        : self.model.py_x,
           "KL"          : self.model.KL
+          # "a"           : self.model.a,
+          # "b"           : self.model.b,
+          # "alpha"       : self.model.alpha,
+          # "beta"        : self.model.beta
         }
 
         res = self.session.run(fetches, feed_dict=feed_dict)
@@ -121,6 +125,10 @@ class VAETrainer:
         
         if batch_id % 100 == 0:
           # print(res["KL"])
+          # print(res["a"])
+          # print(res["b"])
+          # print(res["alpha"])
+          # print(res["beta"])
           print("Iter {:5d} loss {:6f} accuracy {:1.2f} lr {:1.6f}".format(
             batch_id, res["loss"], batch_accuracy, lr_t))
 

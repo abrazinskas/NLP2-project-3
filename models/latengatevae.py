@@ -240,15 +240,23 @@ class LatentGateVAE:
     acc = acc_correct / acc_total
 
     # =========== KL Part ==============
-    KL = ((alpha - a) / (self.eps + alpha)) * (-np.euler_gamma - tf.digamma(beta + self.eps) - tf.pow(beta + self.eps, -1))
-    KL += tf.log(alpha * beta + self.eps)
-    # KL += tf.lgamma(a) + tf.lgamma(b) - tf.lgamma(a + b) # TODO this term causes nan
-    KL -= ((beta - 1.) / (beta + self.eps))
+    # Numerical stability
+    # alpha = tf.clip_by_value(alpha, 0.001, 10)
+    # beta = tf.clip_by_value(beta, 0.001, 10)
+    # a = tf.clip_by_value(a, 0.001, 10)
+    # b = tf.clip_by_value(b, 0.001, 10)
+
+    KL = ((alpha - a) / (alpha)) * (-np.euler_gamma - tf.digamma(beta) - (1.0 / beta))
+    KL += tf.log(alpha * beta)
+    KL += tf.lbeta(tf.concat([tf.expand_dims(a , -1), tf.expand_dims(b, -1)], axis=-1))
+    KL -= (beta - 1.) / (beta)
 
     # Taylor approximation
-    for i in range(0): # TODO should be 3-10, causes nans
-        KL += (b - 1.0) * beta * (tf.pow((float(i) + alpha * beta), -1)) * tf.exp(\
-            tf.lgamma(i / (alpha + self.eps)) + tf.lgamma(b) - tf.lgamma((i / (alpha + self.eps)) + b))
+    taylor_approx = tf.zeros(tf.shape(a))
+    for m in range(1, 1 + 10):
+        taylor_approx += (1.0 / (m + alpha * beta)) * tf.exp(tf.lbeta(tf.concat([tf.expand_dims(m/alpha, -1), \
+                tf.expand_dims(beta, -1)], axis=-1)))
+    KL += (b - 1.0) * beta * taylor_approx
 
     KL = tf.reshape(KL, [batch_size, longest_y])
     KL = tf.reduce_sum(KL * y_mask, axis=1)
