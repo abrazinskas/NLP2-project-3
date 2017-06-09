@@ -62,6 +62,16 @@ class VAETrainer:
     
     steps = 0
 
+    # =========
+    # evaluate on development set
+    val_aer, val_acc, val_loss = self.model.evaluate(self.dev_corpus, self.dev_wa, batch_size=self.batch_size)
+
+    # print Epoch loss    
+    print("Epoch {} val_aer {:1.2f} val_acc {:1.2f} val_loss {:6f}".format(
+      0, 
+      val_aer, val_acc, val_loss))
+    #========
+
     for epoch_id in range(1, self.num_epochs + 1):
       
       # shuffle data set every epoch
