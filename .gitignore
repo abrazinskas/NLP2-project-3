@@ -6,3 +6,4 @@ output/
 *.ipynb
 .ipynb_checkpoints
 params/
+!notebooks/theory.ipynb
