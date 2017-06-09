@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pickle
-from utils import smart_reader
+from utils import smart_reader, bitext_reader
 from vocabulary import Vocabulary
 from models.neuralibm1_collocations import NeuralIBM1CollocationsModel
 from trainers.neuralibm1trainer_context import NeuralIBM1ContextTrainer
@@ -11,9 +11,14 @@ train_e_path = '../data/training/hansards.36.2.e.gz'
 train_f_path = '../data/training/hansards.36.2.f.gz'
 # train_e_path = '../data/validation/dev.e.gz'
 # train_f_path = '../data/validation/dev.f.gz'
+
 dev_e_path = '../data/validation/dev.e.gz'
 dev_f_path = '../data/validation/dev.f.gz'
 dev_wa = '../data/validation/dev.wa.nonullalign'
+
+test_e_path = '../data/test/test.e.gz'
+test_f_path = '../data/test/test.f.gz'
+test_wa = '../data/test/test.wa.nonullalign'
 
 
 # Using only 1000 words will result in many UNKs, but
@@ -32,39 +37,46 @@ vocabulary_f = Vocabulary(corpus=corpus_f, max_tokens=max_tokens)
 pickle.dump(vocabulary_f, open("vocabulary_f.pkl", mode="wb"))
 print("French vocabulary size: {}".format(len(vocabulary_f)))
 
+
+# load test corpus
+test_corpus = list(bitext_reader(
+    smart_reader(test_e_path),
+    smart_reader(test_f_path)))
+
 # run
 tf.reset_default_graph()
 
 with tf.Session() as sess:
+    # with tf.device("/cpu:0"):
+    # some hyper-parameters
+    # tweak them as you wish
+    batch_size = 22  # on CPU, use something much smaller e.g. 1-16
+    max_length = 20
+    lr = 0.0005
+    lr_decay = 0.0  # set to 0.0 when using Adam optimizer (default)
+    emb_dim = 64
+    mlp_dim = 128
+    num_epochs = 5
 
-  # some hyper-parameters
-  # tweak them as you wish
-  batch_size = 25  # on CPU, use something much smaller e.g. 1-16
-  max_length = 20
-  lr = 0.0005
-  lr_decay = 0.0  # set to 0.0 when using Adam optimizer (default)
-  emb_dim = 64
-  mlp_dim = 128
-  num_epochs = 5
-  gated = True
+    # our model
+    model = NeuralIBM1CollocationsModel(
+        x_vocabulary=vocabulary_e, y_vocabulary=vocabulary_f,
+        batch_size=batch_size, emb_dim=emb_dim, mlp_dim=mlp_dim, session=sess)
+    # our trainer
+    trainer = NeuralIBM1ContextTrainer(
+        model, train_e_path, train_f_path,
+        dev_e_path, dev_f_path, dev_wa,
+        num_epochs=num_epochs, batch_size=batch_size,
+        max_length=max_length, lr=lr, lr_decay=lr_decay, session=sess)
 
-  # our model
-  model = NeuralIBM1CollocationsModel(
-    x_vocabulary=vocabulary_e, y_vocabulary=vocabulary_f,
-    batch_size=batch_size, emb_dim=emb_dim, mlp_dim=mlp_dim, session=sess, gated=gated)
+    # now first TF needs to initialize all the variables
+    print("Initializing variables..")
+    sess.run(tf.global_variables_initializer())
 
-  print("gated mode is %r" % gated)
-  # our trainer
-  trainer = NeuralIBM1ContextTrainer(
-    model, train_e_path, train_f_path,
-    dev_e_path, dev_f_path, dev_wa,
-    num_epochs=num_epochs, batch_size=batch_size,
-    max_length=max_length, lr=lr, lr_decay=lr_decay, session=sess)
+    # now we can start training!
+    print("Training started..")
+    trainer.train()
 
-  # now first TF needs to initialize all the variables
-  print("Initializing variables..")
-  sess.run(tf.global_variables_initializer())
-
-  # now we can start training!
-  print("Training started..")
-  trainer.train()
+    # evaluate on test set
+    test_aer, test_acc, test_loss = model.evaluate(test_corpus, test_wa, batch_size=batch_size)
+    print("test_aer {:1.2f} test_acc {:1.2f} test_loss {:6f}".format(test_aer, test_acc, test_loss))

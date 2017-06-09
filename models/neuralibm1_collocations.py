@@ -192,6 +192,7 @@ class NeuralIBM1CollocationsModel:
         # i_f = tf.tile(i_f, [1, longest_x, 1, 1])  # [B, M, N, vocab_size]
 
         t_e = tf.reshape(t_e, [batch_size, longest_x, self.y_vocabulary_size])
+        self.t_e = t_e # we will do inference based on it
         t_e = tf.expand_dims(t_e, axis=2)
         # t_e = tf.tile(t_e, [1, 1, longest_y, 1]) # [B, M, N, vocab_size]
 
@@ -230,8 +231,8 @@ class NeuralIBM1CollocationsModel:
                 pred = set((aj, j) for j, aj in enumerate(alignment[:N], 1) if aj > 0)
                 metric.update(sure=sure, probable=probable, predicted=pred)
                 # print(batch[s])
-                # print(alignment[:N])
-                print(pred)
+                print(alignment[:N])
+                # print(pred)
                 #       s +=1
 
         accuracy = accuracy_correct / float(accuracy_total)
@@ -247,8 +248,8 @@ class NeuralIBM1CollocationsModel:
         }
 
         # run model on this input
-        py_xa, acc_correct, acc_total, loss = self.session.run(
-            [self.py_xa, self.accuracy_correct, self.accuracy_total, self.loss],
+        t_e, py_xa, acc_correct, acc_total, loss = self.session.run(
+            [self.t_e, self.py_xa, self.accuracy_correct, self.accuracy_total, self.loss],
             feed_dict=feed_dict)
 
         # things to return
@@ -261,7 +262,8 @@ class NeuralIBM1CollocationsModel:
                 if french_word == 0:  # Padding
                     break
 
-                probs = py_xa[b, :, j, french_word]
+                # probs = py_xa[b, :, j, french_word]
+                probs = t_e[b, :, french_word]
                 a_j = probs.argmax()
                 p_j = probs[a_j]
 

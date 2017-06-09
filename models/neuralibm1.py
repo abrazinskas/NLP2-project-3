@@ -230,8 +230,8 @@ class NeuralIBM1Model:
         pred = set((aj, j) for j, aj in enumerate(alignment[:N], 1) if aj > 0)
         metric.update(sure=sure, probable=probable, predicted=pred)
  #       print(batch[s])
- #        print(alignment[:N])
-        print(pred)
+        print(alignment[:N])
+ #        print(pred)
  #       s +=1
 
     accuracy = accuracy_correct / float(accuracy_total)
