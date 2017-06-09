@@ -7,3 +7,6 @@ output/
 .ipynb_checkpoints
 params/
 !notebooks/theory.ipynb
+!notebooks/theory_arthur.ipynb
+!notebooks/T2.ipynb
+!notebooks/T3.ipynb
