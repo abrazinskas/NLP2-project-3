@@ -170,9 +170,9 @@ class LatentGateVAE:
     hb = tf.tanh(hb)                                       # non-linearity
     beta = tf.exp(tf.matmul(hb, self.phi_W_b) + self.phi_b_b)      # affine transformation [B * N, 1]
 
-    # TODO This doesn't seem to work for numerical issues.
-    # alpha = tf.maximum(alpha, 10)
-    # beta = tf.maximum(beta, 10)
+    # Numerical stability
+    alpha = tf.clip_by_value(alpha, 0.001, 10)
+    beta = tf.clip_by_value(beta, 0.001, 10)
 
     # Sample some random uniform numbers. Then calculate s using a and b
     # which is then Kumaraswamy distributed.
@@ -190,9 +190,9 @@ class LatentGateVAE:
     hb = tf.tanh(hb)                                                # non-linearity
     b = tf.exp(tf.matmul(hb, self.th_W_b) + self.th_b_b)            # affine transformation [B * N, 1]
 
-    # TODO This doesn't seem to work for numerical issues.
-    # a = tf.maximum(a, 10)
-    # b = tf.maximum(b, 10)
+    # Numerical stability
+    a = tf.clip_by_value(a, 0.001, 10)
+    b = tf.clip_by_value(b, 0.001, 10)
 
     # Change s to the Beta mean if we're not training
     s = tf.cond(self.is_training, lambda: s, lambda: a / (a + b))
@@ -240,12 +240,6 @@ class LatentGateVAE:
     acc = acc_correct / acc_total
 
     # =========== KL Part ==============
-    # Numerical stability
-    alpha = tf.clip_by_value(alpha, 0.001, 10)
-    beta = tf.clip_by_value(beta, 0.001, 10)
-    a = tf.clip_by_value(a, 0.001, 10)
-    b = tf.clip_by_value(b, 0.001, 10)
-
     KL = ((alpha - a) / (alpha)) * (-np.euler_gamma - tf.digamma(beta) - (1.0 / beta))
     KL += tf.log(alpha * beta)
     KL += tf.lbeta(tf.concat([tf.expand_dims(a , -1), tf.expand_dims(b, -1)], axis=-1))
@@ -261,6 +255,7 @@ class LatentGateVAE:
     KL = tf.reshape(KL, [batch_size, longest_y])
     KL = tf.reduce_sum(KL * y_mask, axis=1)
     KL = tf.reduce_mean(KL, axis=0)
+    KL = tf.maximum(KL, 0)
     self.KL = KL
 
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -283,7 +278,7 @@ class LatentGateVAE:
     self.accuracy_correct = tf.cast(acc_correct, tf.int64)
     self.accuracy_total = tf.cast(acc_total, tf.int64)
 
-  def evaluate(self, data, ref_alignments, batch_size=4):
+  def evaluate(self, data, ref_alignments, batch_size=4, training=False):
     """Evaluate the model on a data set."""
 
     ref_align = read_naacl_alignments(ref_alignments)
@@ -299,7 +294,7 @@ class LatentGateVAE:
       x, y = prepare_data(batch, self.x_vocabulary, self.y_vocabulary)
       y_len = np.sum(np.sign(y), axis=1, dtype="int64")
 
-      align, prob, acc_correct, acc_total, loss = self.get_viterbi(x, y)
+      align, prob, acc_correct, acc_total, loss = self.get_viterbi(x, y, training)
       accuracy_correct += acc_correct
       accuracy_total += acc_total
       loss_total += loss
@@ -318,13 +313,13 @@ class LatentGateVAE:
     accuracy = accuracy_correct / float(accuracy_total)
     return metric.aer(), accuracy, loss_total/float(steps)
 
-  def get_viterbi(self, x, y):
+  def get_viterbi(self, x, y, training):
     """Returns the Viterbi alignment for (x, y)"""
 
     feed_dict = {
         self.x: x,  # English
         self.y: y,  # French
-        self.is_training: False # Use Beta distr mean instead of a Kuma sample.
+        self.is_training: training # Use Beta distr mean instead of a Kuma sample.
     }
 
     # run model on this input

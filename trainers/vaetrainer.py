@@ -143,15 +143,24 @@ class VAETrainer:
             batch_id, res["loss"], batch_accuracy, lr_t))
 
       # evaluate on development set
-      val_aer, val_acc, val_loss = self.model.evaluate(self.dev_corpus, self.dev_wa, batch_size=self.batch_size)
+      val_aer, val_acc, val_loss = self.model.evaluate(self.dev_corpus, self.dev_wa, batch_size=self.batch_size, training=True)
       
       # print Epoch loss    
-      print("Epoch {} loss {:6f} accuracy {:1.2f} val_aer {:1.2f} val_acc {:1.2f} val_loss {:6f}".format(
+      print("Train=true: Epoch {} loss {:6f} accuracy {:1.2f} val_aer {:1.2f} val_acc {:1.2f} val_loss {:6f}".format(
           epoch_id, 
           loss / float(epoch_steps), 
           accuracy_correct / float(accuracy_total),
           val_aer, val_acc, val_loss))
       
+      val_aer, val_acc, val_loss = self.model.evaluate(self.dev_corpus, self.dev_wa, batch_size=self.batch_size)
+      
+      # print Epoch loss    
+      print("Train=False: Epoch {} loss {:6f} accuracy {:1.2f} val_aer {:1.2f} val_acc {:1.2f} val_loss {:6f}".format(
+          epoch_id, 
+          loss / float(epoch_steps), 
+          accuracy_correct / float(accuracy_total),
+          val_aer, val_acc, val_loss))
+
       # save parameters
       save_path = self.model.save(self.session, path="model.ckpt")
       print("Model saved in file: %s" % save_path)
